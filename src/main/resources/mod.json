@@ -1,9 +1,9 @@
 {
 
   // Java verticle
-  "main":"ch.erni.beer.vertx.PingVerticle",
+  "main":"ch.erni.beer.vertx.ConfigVerticle",
 
-
+  "includes": "com.englishtown~vertx-mod-when~1.2.0-final",
   // If your module is going to be registered in the Vert.x module registry you will also need the following
   // mandatory fields
   "description":"Put description of your module here",

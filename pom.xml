@@ -22,7 +22,7 @@
     <!-- Set pullInDeps to true if you want any modules specified in the 'includes' and 'deploys' fields
     in your mod.json to be automatically pulled in during packaging and added inside your module. Doing this means your
     module won't download and install those dependencies at run-time when they're first requested. -->
-    <vertx.pullInDeps>false</vertx.pullInDeps>
+    <vertx.pullInDeps>true</vertx.pullInDeps>
 
     <!-- Set createFatJar to true if you want to create a fat executable jar which contains the Vert.x binaries
     along with the module so it can be run with java -jar <jarname> -->
@@ -92,6 +92,13 @@
       <version>${vertx.testtools.version}</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>com.englishtown</groupId>
+      <artifactId>vertx-mod-when</artifactId>
+      <version>3.0.1</version>
+      <scope>provided</scope>
+    </dependency>
+
 
     <!-- Add any other dependencies that you want packaged into your module (in the lib dir) here
     as 'compile' dependencies. Here is an example
@@ -121,6 +128,9 @@
            <classpath>src/main/resources/:src/test/resources/:target/classes/:target/test-classes/</classpath>
         </configuration>
         -->
+        <configuration>
+          <configFile>src/main/resources/config.json</configFile>
+        </configuration>
         <!-- Make sure that the plugin uses the vert.x versions from this pom.xml not from its own pom.xml -->
         <dependencies>
           <dependency>
