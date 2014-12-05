@@ -79,6 +79,13 @@
       <version>${vertx.version}</version>
       <scope>provided</scope>
     </dependency>
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>mod-rxvertx</artifactId>
+      <version>1.0.0-beta4</version>
+    </dependency>
+
+
     <!--Test dependencies-->
     <dependency>
       <groupId>junit</groupId>
@@ -92,13 +99,6 @@
       <version>${vertx.testtools.version}</version>
       <scope>test</scope>
     </dependency>
-    <dependency>
-      <groupId>com.englishtown</groupId>
-      <artifactId>vertx-mod-when</artifactId>
-      <version>3.0.1</version>
-      <scope>provided</scope>
-    </dependency>
-
 
     <!-- Add any other dependencies that you want packaged into your module (in the lib dir) here
     as 'compile' dependencies. Here is an example

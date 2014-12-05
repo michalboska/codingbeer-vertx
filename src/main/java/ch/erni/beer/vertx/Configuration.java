@@ -5,7 +5,6 @@ import org.vertx.java.core.json.JsonObject;
 import org.vertx.java.platform.Container;
 
 import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -38,7 +37,7 @@ public final class Configuration {
             String followingKeys = matcher.group(2);
             JsonObject nestedObject = jsonObject.getObject(immediateKey);
             if (nestedObject == null) {
-                throw new IllegalArgumentException(key + " is a primitive type, not a nested object!");
+                throw new IllegalArgumentException("Nested JSON object " + key + " not found");
             }
             return getOptionRecursive(followingKeys, nestedObject, getterFunction);
         }
