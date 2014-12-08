@@ -11,5 +11,9 @@ public abstract class PongDTO extends JsonObject {
         putString("type", getType());
     }
 
+    protected void setStatusOk() {
+        putString("status", "ok");
+    }
+
     public abstract String getType();
 }

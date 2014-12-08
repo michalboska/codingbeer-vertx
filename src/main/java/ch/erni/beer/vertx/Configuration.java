@@ -22,11 +22,14 @@ public final class Configuration {
         return (Integer) getOptionRecursive(key, remoteContainer.config(), JsonObject::getInteger);
     }
 
+    public static String getMandatoryString(String key, JsonObject jsonObject) {
+        checkKeyExists(key, jsonObject);
+        return jsonObject.getString(key);
+    }
+
     private static Object getOptionRecursive(String key, JsonObject jsonObject, BiFunction<JsonObject, String, ? extends Object> getterFunction) {
         if (!key.contains(".")) { //simple key, return directly
-            if (!jsonObject.containsField(key)) {
-                throw new IllegalArgumentException("Key " + key + " does not exist in this JSON object");
-            }
+            checkKeyExists(key, jsonObject);
             return getterFunction.apply(jsonObject, key);
         } else { //complicated expression in form of obj.property.property2 .... etc
             Matcher matcher = OPTION_NESTED_PATTERN.matcher(key);
@@ -40,6 +43,12 @@ public final class Configuration {
                 throw new IllegalArgumentException("Nested JSON object " + key + " not found");
             }
             return getOptionRecursive(followingKeys, nestedObject, getterFunction);
+        }
+    }
+
+    private static void checkKeyExists(String key, JsonObject jsonObject) {
+        if (!jsonObject.containsField(key)) {
+            throw new IllegalArgumentException("Key " + key + " does not exist in this JSON object");
         }
     }
 

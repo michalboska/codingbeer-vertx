@@ -80,10 +80,16 @@
       <scope>provided</scope>
     </dependency>
     <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+      <version>3.1</version>
+    </dependency>
+    <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>mod-rxvertx</artifactId>
       <version>1.0.0-beta4</version>
     </dependency>
+
 
 
     <!--Test dependencies-->
