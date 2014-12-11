@@ -1,6 +1,7 @@
 package ch.erni.beer.vertx;
 
 
+import org.vertx.java.core.json.JsonArray;
 import org.vertx.java.core.json.JsonObject;
 import org.vertx.java.platform.Container;
 
@@ -20,6 +21,10 @@ public final class Configuration {
 
     public static Integer getInteger(String key, Container remoteContainer) {
         return (Integer) getOptionRecursive(key, remoteContainer.config(), JsonObject::getInteger);
+    }
+
+    public static JsonArray getArray(String key, Container remoteContainer) {
+        return (JsonArray) getOptionRecursive(key, remoteContainer.config(), JsonObject::getArray);
     }
 
     public static String getMandatoryString(String key, JsonObject jsonObject) {

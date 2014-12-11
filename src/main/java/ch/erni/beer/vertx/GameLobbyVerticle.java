@@ -5,6 +5,7 @@ import ch.erni.beer.vertx.dto.ErrorDTO;
 import ch.erni.beer.vertx.dto.lobby.AddGameDTO;
 import ch.erni.beer.vertx.dto.lobby.AddPlayerDTO;
 import ch.erni.beer.vertx.dto.lobby.JoinGameDTO;
+import ch.erni.beer.vertx.dto.lobby.ListPlayersDTO;
 import ch.erni.beer.vertx.entity.Entity;
 import ch.erni.beer.vertx.entity.Game;
 import ch.erni.beer.vertx.entity.Player;
@@ -16,6 +17,7 @@ import org.vertx.java.core.json.JsonObject;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.stream.Collectors;
 
 /**
  * Created by Michal Boska on 3. 12. 2014.
@@ -29,7 +31,6 @@ public class GameLobbyVerticle extends PongVerticle {
     private Map<String, Game> activeGames = new HashMap<>();
     private Map<String, Player> activePlayers = new HashMap<>();
 
-//    private
 
     @Override
     public void start() {
@@ -51,6 +52,10 @@ public class GameLobbyVerticle extends PongVerticle {
             case "joinGame":
                 container.logger().info("Joining an existing game");
                 result = joinGame(message);
+                break;
+            case "listPlayers":
+                container.logger().info("Listing players");
+                result = listPlayers();
                 break;
         }
         if (result != null && ErrorDTO.isError(result)) {
@@ -89,6 +94,7 @@ public class GameLobbyVerticle extends PongVerticle {
         JsonObject config = new JsonObject();
         config.putString(GameVerticle.Constants.CONFIG_GAME_GUID, guid);
         config.putString(GameVerticle.Constants.CONFIG_PLAYER_GUID, playerGuid);
+        config.putString(GameVerticle.Constants.CONFIG_PLAYER_NAME, player.getName());
         container.deployVerticle(GameVerticle.class.getName(), config, result -> {
             if (result.succeeded()) {
                 message.reply(new AddGameDTO(guid));
@@ -131,6 +137,9 @@ public class GameLobbyVerticle extends PongVerticle {
         return AsyncHandlerDTO.getInstance();
     }
 
+    private JsonObject listPlayers() {
+        return new ListPlayersDTO(activePlayers.values().stream().map(p -> p.getName()).collect(Collectors.toSet()));
+    }
 
 }
 

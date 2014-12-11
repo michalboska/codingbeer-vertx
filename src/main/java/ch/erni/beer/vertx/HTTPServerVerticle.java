@@ -11,6 +11,8 @@ import org.vertx.java.platform.Verticle;
 public class HTTPServerVerticle extends Verticle {
     public static final String CONFIG_PORT = "port";
     public static final String CONFIG_ADDRESS = "address";
+    public static final String CONFIG_ALLOWED_ENDPOINTS_IN = "allowedEndpointsIn";
+    public static final String CONFIG_ALLOWED_ENDPOINTS_OUT = "allowedEndpointsOut";
 
     @Override
     public void start() {
@@ -24,9 +26,11 @@ public class HTTPServerVerticle extends Verticle {
             }
             r.response().sendFile("www/" + file, "www/404.html");
         });
+
         JsonObject sockJsConfig = new JsonObject().putString("prefix", "/eventbus");
-        JsonArray empty = new JsonArray();
-        vertx.createSockJSServer(httpServer).bridge(sockJsConfig, empty, empty);
+        JsonArray allowedEndpointsIn = Configuration.getArray(CONFIG_ALLOWED_ENDPOINTS_IN, container);
+        JsonArray allowedEndpointsOut = Configuration.getArray(CONFIG_ALLOWED_ENDPOINTS_OUT, container);
+        vertx.createSockJSServer(httpServer).bridge(sockJsConfig, allowedEndpointsIn, allowedEndpointsOut);
         httpServer.listen(Configuration.getInteger(CONFIG_PORT, container), Configuration.getString(CONFIG_ADDRESS, container));
     }
 }

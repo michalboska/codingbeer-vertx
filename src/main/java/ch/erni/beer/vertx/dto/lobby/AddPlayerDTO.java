@@ -13,6 +13,6 @@ public class AddPlayerDTO extends EntityCreatedDTO {
     }
     @Override
     public String getType() {
-        return "addSecondPlayer";
+        return "addPlayer";
     }
 }

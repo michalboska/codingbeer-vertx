@@ -15,7 +15,9 @@ import java.util.List;
 public class GameVerticle extends PongVerticle {
 
     private List<Player> players = new ArrayList<>(2);
-    private String guid;
+    private String guid, publicAddress, privateAddress;
+    private int counter = 0;
+    private int v = 10;
 
     @Override
     public void start() {
@@ -23,8 +25,19 @@ public class GameVerticle extends PongVerticle {
         String playerGuid = Configuration.getString(Constants.CONFIG_PLAYER_GUID, container);
         String playerName = Configuration.getString(Constants.CONFIG_PLAYER_NAME, container);
         players.add(new Player(playerName, playerGuid));
-        vertx.eventBus().registerHandler(Constants.getPublicQueueAddressForGame(guid), createHandler(this::handlePublicMessages));
-        vertx.eventBus().registerHandler(Constants.getPrivateQueueAddressForGame(guid), createHandler(this::handlePrivateMessages));
+        publicAddress = Constants.getPublicQueueAddressForGame(guid);
+        privateAddress = Constants.getPrivateQueueAddressForGame(guid);
+        vertx.eventBus().registerHandler(publicAddress, createHandler(this::handlePublicMessages));
+        vertx.eventBus().registerHandler(privateAddress, createHandler(this::handlePrivateMessages));
+        vertx.setPeriodic(25, l -> {
+            if (counter >= 200 && v > 0) {
+                v = -5;
+            } else if (counter <= 0 && v < 0) {
+                v = 5;
+            }
+            counter += v;
+            vertx.eventBus().publish(publicAddress, counter);
+        });
     }
 
     private JsonObject handlePublicMessages(Message<JsonObject> message) {
@@ -53,8 +66,8 @@ public class GameVerticle extends PongVerticle {
     }
 
     public static class Constants {
-        public static final String QUEUE_PUBLIC_PREFIX = "ch.erni.beer.vertx.GameVerticle.queue.public-";
-        public static final String QUEUE_PRIVATE_PREFIX = "ch.erni.beer.vertx.GameVerticle.queue.private-";
+        public static final String QUEUE_PUBLIC_PREFIX = "Game.public-";
+        public static final String QUEUE_PRIVATE_PREFIX = "Game.private-";
 
         public static final String CONFIG_GAME_GUID = "gameGuid";
         public static final String CONFIG_PLAYER_GUID = "playerGuid";

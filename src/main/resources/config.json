@@ -2,5 +2,19 @@
   "http": {
     "port": 8080,
     "address": "0.0.0.0"
-  }
+  },
+  "allowedEndpointsIn": [
+    {
+      "address": "ch.erni.beer.vertx.GameLobbyVerticle.queue"
+    },
+    {
+      "address_re": "Game\\.public-[a-zA-Z0-9\\-]+"
+    }
+  ],
+  "allowedEndpointsOut": [
+    {
+      "address_re": "Game\\.public-[a-zA-Z0-9\\-]+"
+    }
+  ]
+
 }
