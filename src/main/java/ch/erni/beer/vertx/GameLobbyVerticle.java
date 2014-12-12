@@ -16,8 +16,6 @@ import org.vertx.java.core.json.JsonObject;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.stream.Collectors;
 
 /**
  * Created by Michal Boska on 3. 12. 2014.
@@ -138,7 +136,8 @@ public class GameLobbyVerticle extends PongVerticle {
     }
 
     private JsonObject listPlayers() {
-        return new ListPlayersDTO(activePlayers.values().stream().map(p -> p.getName()).collect(Collectors.toSet()));
+        String[] strings = activePlayers.values().stream().map(p -> p.getName()).toArray(size -> new String[size]);
+        return new ListPlayersDTO(strings);
     }
 
 }

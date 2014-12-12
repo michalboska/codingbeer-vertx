@@ -129,7 +129,7 @@ var UIModel = function() {
 var Controller = function() {
     const GAME_QUEUE_PREFIX = "Game.public-";
     const LOBBY_QUEUE = "ch.erni.beer.vertx.GameLobbyVerticle.queue";
-    var queue;
+    var inputQueue;
     var playerGUID, gameGUID;
     var player1, player2, ball;
     var eb;
@@ -158,6 +158,7 @@ var Controller = function() {
                     if (addGameResult.status == "ok") {
                         gameGUID = addGameResult.guid;
                         var address = GAME_QUEUE_PREFIX + gameGUID;
+                        inputQueue = address + "-" + playerGUID;
                         console.log("Registering on " + address);
                         eb.registerHandler(address, onGameMessageReceived);
                     }
@@ -170,11 +171,14 @@ var Controller = function() {
 
     function onGameMessageReceived(message) {
 
-        player2.p.y = message + player2.p.cy;
+
     }
 
     function onPlayerMove() {
-        console.log("move");
+        if (inputQueue == null) {
+            return;
+        }
+        eb.send(inputQueue, {guid: playerGUID, y: player1.p.y - player1.p.cy});
     }
 }
 
