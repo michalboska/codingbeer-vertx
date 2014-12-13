@@ -10,7 +10,6 @@ public class Player extends Entity {
 
     public Player(String name, String guid) {
         super(name, guid);
-        position = 270;
     }
 
     public int getPosition() {
@@ -34,6 +33,6 @@ public class Player extends Entity {
     }
 
     public void setInputQueueAddress(String gameGuid) {
-        this.inputQueueAddress = gameGuid + "-" + guid;
+        this.inputQueueAddress = "Game.public-" + gameGuid + "-" + guid;
     }
 }

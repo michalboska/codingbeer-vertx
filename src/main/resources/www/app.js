@@ -12,7 +12,7 @@ var UIModel = function() {
                 this._super(p, {
                     asset: "black.png",
                     x: playerNum == 1 ? 10 : 994,
-                    y: 250
+                    y: 280
                 });
                 this.add("2d");
             }
@@ -64,39 +64,19 @@ var UIModel = function() {
         init: function(p) {
             this._super(p,  {
                 color: "red",
-                x: 150,
-                y: 150,
+                x: 512,
+                y: 300,
                 w: 20,
                 h: 20,
                 cx: 10,
-                cy: 10,
-                baseSpeed: 100
+                cy: 10
             });
             this.add("2d");
-            this.p.vx = -this.p.baseSpeed;
-            this.p.vy = this.p.baseSpeed;
-            this.on("hit.sprite", this, "bump");
         },
         draw: function(ctx) {
             ctx.fillStyle = this.p.color;
             ctx.fillRect(-this.p.cx, -this.p.cy, this.p.w, this.p.h);
-        },
-        bump: function(collision) {
-            console.log(collision);
-            if (collision.obj.isA("Player1")) {
-                this.p.vx = this.p.baseSpeed;
-            }
-            if (collision.obj.isA("Player2")) {
-                this.p.vx = -this.p.baseSpeed;
-            }
-            if (collision.obj.isA("WallTop")) {
-                this.p.vy = this.p.baseSpeed;
-            }
-            if (collision.obj.isA("WallBottom")) {
-                this.p.vy = -this.p.baseSpeed;
-            }
         }
-
     });
 
     Q.scene("mainScene", function (stage) {
@@ -132,6 +112,7 @@ var Controller = function() {
     var inputQueue;
     var playerGUID, gameGUID;
     var player1, player2, ball;
+    var myPlayerNumber;
     var eb;
     var model = new UIModel();
 
@@ -148,28 +129,47 @@ var Controller = function() {
     model.uiInit();
 
     function registerToGame() {
-        eb.send(LOBBY_QUEUE, {type: "listPlayers"}, function(result) {
-            console.log(result);
-        });
         eb.send(LOBBY_QUEUE, {type: "addPlayer", "name": "Player" + new Date().getTime()}, function(addPlayerResult){
             if (addPlayerResult.status == "ok") {
                 playerGUID = addPlayerResult.guid;
-                eb.send(LOBBY_QUEUE, {type: "addGame", playerGuid: playerGUID, name: "Game" + new Date().getTime()}, function(addGameResult) {
-                    if (addGameResult.status == "ok") {
-                        gameGUID = addGameResult.guid;
+                eb.send(LOBBY_QUEUE, {type: "getAvailableGame"}, function(availGameResult){
+                    var onGameRegistered = function(result) {
                         var address = GAME_QUEUE_PREFIX + gameGUID;
                         inputQueue = address + "-" + playerGUID;
                         console.log("Registering on " + address);
                         eb.registerHandler(address, onGameMessageReceived);
+                    };
+                    var availGameGuid = availGameResult.guid;
+                    if (availGameGuid != null) { //join existing game
+                        gameGUID = availGameGuid;
+                        myPlayerNumber = 2;
+                        eb.send(LOBBY_QUEUE, {type: "joinGame", playerGuid: playerGUID, gameGuid: gameGUID}, function(joinGameResult){
+                            if (joinGameResult.status == "ok") {
+                                 onGameRegistered(joinGameResult);
+                            }
+                        });
+                    } else { //create a new game
+                        myPlayerNumber = 1;
+                        eb.send(LOBBY_QUEUE, {type: "addGame", playerGuid: playerGUID, name: "Game" + new Date().getTime()}, function(addGameResult) {
+                            if (addGameResult.status == "ok") {
+                                gameGUID = addGameResult.guid;
+                                onGameRegistered(addGameResult);
+                            }
+                        });
                     }
-                    console.log(addGameResult);
                 });
             }
-            console.log(addPlayerResult);
         });
     }
 
     function onGameMessageReceived(message) {
+        console.log(message);
+        if (message.type == "state") {
+            ball.p.x = message.ballx + ball.p.cx;
+            ball.p.y = message.bally + ball.p.cy;
+        } else if (message.type == "command") {
+
+        }
 
 
     }
@@ -178,7 +178,17 @@ var Controller = function() {
         if (inputQueue == null) {
             return;
         }
-        eb.send(inputQueue, {guid: playerGUID, y: player1.p.y - player1.p.cy});
+        eb.send(inputQueue, {type: "move", guid: playerGUID, y: player1.p.y - player1.p.cy}, function(reply){
+            var y = reply.y;
+            var clientY = player1.p.y - player1.p.cy;
+            //fix position from server if the difference is too high
+            if (Math.abs(y - clientY) > 10) {
+                console.log("fixing client " + clientY + " vs server " + y);
+                player1.p.y = y + player1.p.cy;
+            } else {
+                console.log("ok");
+            }
+        });
     }
 }
 

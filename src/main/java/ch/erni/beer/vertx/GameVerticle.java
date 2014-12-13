@@ -20,7 +20,7 @@ public class GameVerticle extends PongVerticle {
     private GameStateDTO state = new GameStateDTO();
     private GameCommandDTO command = new GameCommandDTO();
     private Point ball = new Point(512, 300);
-    private int ballSpeed = 1;
+    private int ballSpeed = 10;
     private Point ballVector = new Point(-1, -1);
     //we don't want computeNewBallCoordinates to always return new instance to elliminate GC overhead,
     // so we will always modify the same one
@@ -42,6 +42,7 @@ public class GameVerticle extends PongVerticle {
         publicHandler = createHandler(this::handlePublicMessages);
         vertx.eventBus().registerHandler(publicAddress, publicHandler);
         vertx.eventBus().registerHandler(players[0].getInputQueueAddress(), publicHandler);
+        container.logger().info(players[0].getInputQueueAddress());
         vertx.eventBus().registerHandler(privateAddress, createHandler(this::handlePrivateMessages));
     }
 
@@ -74,6 +75,7 @@ public class GameVerticle extends PongVerticle {
             command.setCommand("win" + winning);
             vertx.eventBus().publish(publicAddress, command);
             vertx.cancelTimer(timerID);
+
             return;
         }
         populateGameState();
@@ -95,6 +97,8 @@ public class GameVerticle extends PongVerticle {
                 computeNewBallCoordinates();
             } else { //missed the ball
                 players[1].setScore(players[1].getScore() + 1);
+                resetBall();
+                computeNewBallCoordinates();
             }
         } else if (newBallCoordinates.getX() > 984) { //ball is at player2's level
             if (ballCollidesWith(1)) {
@@ -102,6 +106,8 @@ public class GameVerticle extends PongVerticle {
                 computeNewBallCoordinates();
             } else { //missed the ball
                 players[0].setScore(players[0].getScore() + 1);
+                resetBall();
+                computeNewBallCoordinates();
             }
         }
         ball.set(newBallCoordinates);
@@ -111,7 +117,7 @@ public class GameVerticle extends PongVerticle {
         Player player = null;
         String guid = message.getString("guid");
         for (Player p: players) {
-            if (p.getGuid().equalsIgnoreCase(guid)) {
+            if (p != null && p.getGuid().equalsIgnoreCase(guid)) {
                 player = p;
             }
         }
@@ -124,8 +130,8 @@ public class GameVerticle extends PongVerticle {
         if (newPosition == null) {
             return playerMoveResponse;
         }
-        int value = newPosition.intValue();
-        if (value >= 20 && value <= 480) {
+        int value = Math.round(newPosition.floatValue());
+        if (value >= 20 && value <= 480 && Math.abs(value - player.getPosition()) <= 10) {
             player.setPosition(value);
             populateGameState();
             vertx.eventBus().publish(publicAddress, state);
@@ -178,19 +184,20 @@ public class GameVerticle extends PongVerticle {
 
     private void resetBall() {
         ball.setX(500);
-        ball.setY(500);
+        ball.setY(400);
         ballVector = new Point(-1, -1);
-        ballSpeed = 1;
+        ballSpeed = 5;
         speedCounter = 0;
     }
 
     private void startGame() {
+        container.logger().info(String.format("Game %s is starting", guid));
         if (gameTimer != 0) {
             vertx.cancelTimer(gameTimer);
         }
         resetBall();
-        players[0].setPosition(250);
-        players[1].setPosition(250);
+        players[0].setPosition(230);
+        players[1].setPosition(230);
         players[0].setScore(0);
         players[1].setScore(0);
         populateGameState();

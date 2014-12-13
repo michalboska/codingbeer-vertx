@@ -2,10 +2,7 @@ package ch.erni.beer.vertx;
 
 import ch.erni.beer.vertx.dto.AsyncHandlerDTO;
 import ch.erni.beer.vertx.dto.ErrorDTO;
-import ch.erni.beer.vertx.dto.lobby.AddGameDTO;
-import ch.erni.beer.vertx.dto.lobby.AddPlayerDTO;
-import ch.erni.beer.vertx.dto.lobby.JoinGameDTO;
-import ch.erni.beer.vertx.dto.lobby.ListPlayersDTO;
+import ch.erni.beer.vertx.dto.lobby.*;
 import ch.erni.beer.vertx.entity.Entity;
 import ch.erni.beer.vertx.entity.Game;
 import ch.erni.beer.vertx.entity.Player;
@@ -29,6 +26,8 @@ public class GameLobbyVerticle extends PongVerticle {
     private Map<String, Game> activeGames = new HashMap<>();
     private Map<String, Player> activePlayers = new HashMap<>();
 
+    private Game joinableGame;
+
 
     @Override
     public void start() {
@@ -50,6 +49,10 @@ public class GameLobbyVerticle extends PongVerticle {
             case "joinGame":
                 container.logger().info("Joining an existing game");
                 result = joinGame(message);
+                break;
+            case "getAvailableGame":
+                container.logger().info("Getting available game");
+                result = getAvailableGame();
                 break;
             case "listPlayers":
                 container.logger().info("Listing players");
@@ -93,6 +96,7 @@ public class GameLobbyVerticle extends PongVerticle {
         config.putString(GameVerticle.Constants.CONFIG_GAME_GUID, guid);
         config.putString(GameVerticle.Constants.CONFIG_PLAYER_GUID, playerGuid);
         config.putString(GameVerticle.Constants.CONFIG_PLAYER_NAME, player.getName());
+        //todo: stop finished games
         container.deployVerticle(GameVerticle.class.getName(), config, result -> {
             if (result.succeeded()) {
                 message.reply(new AddGameDTO(guid));
@@ -100,6 +104,7 @@ public class GameLobbyVerticle extends PongVerticle {
                 message.reply(new ErrorDTO(result.cause()));
             }
         });
+        joinableGame = game;
         return AsyncHandlerDTO.getInstance();
     }
 
@@ -121,18 +126,24 @@ public class GameLobbyVerticle extends PongVerticle {
         game.addSecondPlayer(player);
         //send message to existing verticle that new player has joined
         String address = GameVerticle.Constants.getPrivateQueueAddressForGame(gameGuid);
-        JsonObject configMessage = new JsonObject();
-        configMessage.putString("type", GameVerticle.Constants.ACTION_ADD_PLAYER);
-        configMessage.putString(GameVerticle.Constants.CONFIG_PLAYER_GUID, playerGuid);
-        vertx.eventBus().send(address, configMessage, (Handler<Message<Object>>) objReply -> {
-            JsonObject reply = (JsonObject) objReply;
+        JsonObject joinMessage = new JsonObject();
+        joinMessage.putString("type", GameVerticle.Constants.ACTION_ADD_PLAYER);
+        joinMessage.putString(GameVerticle.Constants.CONFIG_PLAYER_GUID, playerGuid);
+        joinMessage.putString(GameVerticle.Constants.CONFIG_PLAYER_NAME, player.getName());
+        vertx.eventBus().send(address, joinMessage, (Handler<Message<JsonObject>>) objReply -> {
+            JsonObject reply = objReply.body();
             if (!ErrorDTO.isError(reply)) {
+                joinableGame = null;
                 message.reply(new JoinGameDTO());
             } else {
                 message.reply(reply);
             }
         });
         return AsyncHandlerDTO.getInstance();
+    }
+
+    private JsonObject getAvailableGame() {
+        return new AvailableGameDTO(joinableGame);
     }
 
     private JsonObject listPlayers() {
