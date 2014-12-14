@@ -110,7 +110,6 @@ public class GameLobbyVerticle extends PongVerticle {
         config.putString(GameVerticle.Constants.CONFIG_GAME_GUID, guid);
         config.putString(GameVerticle.Constants.CONFIG_PLAYER_GUID, playerGuid);
         config.putString(GameVerticle.Constants.CONFIG_PLAYER_NAME, player.getName());
-        //todo: stop finished games
         container.deployVerticle(GameVerticle.class.getName(), config, result -> {
             if (result.succeeded()) {
                 deploymentIDs.put(guid, result.result());
@@ -160,6 +159,7 @@ public class GameLobbyVerticle extends PongVerticle {
 
     private JsonObject endGame(JsonObject game) {
         String guid = game.getString("guid");
+        activeGames.remove(guid);
         String id = deploymentIDs.get(guid);
         if (id != null) {
             container.logger().info(String.format("Destroying verticle for game %s", guid));

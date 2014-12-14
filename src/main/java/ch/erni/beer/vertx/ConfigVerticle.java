@@ -45,7 +45,7 @@ public class ConfigVerticle extends Verticle {
 
     private void onError(Throwable t) {
         container.logger().error("An error has occured while starting Pong server", t);
-        container.exit();
+        //maybe we shouldn't exit the whole container
     }
 
 }

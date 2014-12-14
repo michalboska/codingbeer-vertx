@@ -209,11 +209,8 @@ var Controller = function() {
             var y = reply.y;
             var clientY = player.p.y - player.p.cy;
             //fix position from server if the difference is too high
-            if (Math.abs(y - clientY) > 10) {
-                console.log("fixing client " + clientY + " vs server " + y);
+            if (Math.abs(y - clientY) > 20) {
                 player.p.y = y + player.p.cy;
-            } else {
-                console.log("move ok");
             }
         });
     }

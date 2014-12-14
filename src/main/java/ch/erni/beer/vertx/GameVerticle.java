@@ -148,11 +148,10 @@ public class GameVerticle extends PongVerticle {
      * @return index of winning player (0 or 1) or -1 if no one is winning
      */
     private int getWinningPlayer() {
-        if (players[0].getScore() >= 10) {
-            return 0;
-        }
-        if (players[1].getScore() >= 10) {
-            return 1;
+        for (int i = 0; i <= 1; i++) {
+            if (players[i].getScore() >= 10) {
+                return i;
+            }
         }
         return -1;
     }
