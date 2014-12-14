@@ -6,7 +6,6 @@ package ch.erni.beer.vertx.entity;
 public class Player extends Entity {
     private int position; //player cursor position
     private int score;
-    private String inputQueueAddress;
 
     public Player(String name, String guid) {
         super(name, guid);
@@ -28,11 +27,4 @@ public class Player extends Entity {
         this.score = score;
     }
 
-    public String getInputQueueAddress() {
-        return inputQueueAddress;
-    }
-
-    public void setInputQueueAddress(String gameGuid) {
-        this.inputQueueAddress = "Game.public-" + gameGuid + "-" + guid;
-    }
 }

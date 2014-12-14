@@ -19,12 +19,14 @@ import java.util.Map;
  */
 public class GameLobbyVerticle extends PongVerticle {
     public static final String QUEUE_LOBBY = "ch.erni.beer.vertx.GameLobbyVerticle.queue";
+    public static final String QUEUE_LOBBY_PRIVATE = "ch.erni.beer.vertx.GameLobbyVerticle.private-queue";
 
     private static final String ERROR_NO_SUCH_PLAYER = "No such player exists";
     private static final String ERROR_NO_SUCH_GAME = "No such game exists";
 
     private Map<String, Game> activeGames = new HashMap<>();
     private Map<String, Player> activePlayers = new HashMap<>();
+    private Map<String, String> deploymentIDs = new HashMap<>();
 
     private Game joinableGame;
 
@@ -32,6 +34,7 @@ public class GameLobbyVerticle extends PongVerticle {
     @Override
     public void start() {
         vertx.eventBus().registerHandler(QUEUE_LOBBY, createHandler(this::handleMessage));
+        vertx.eventBus().registerHandler(QUEUE_LOBBY_PRIVATE, createHandler(this::handlePrivateMessage));
     }
 
     private JsonObject handleMessage(Message<JsonObject> message) {
@@ -61,6 +64,17 @@ public class GameLobbyVerticle extends PongVerticle {
         }
         if (result != null && ErrorDTO.isError(result)) {
             container.logger().error(result.getString("error"));
+        }
+        return result;
+    }
+
+    private JsonObject handlePrivateMessage(Message<JsonObject> message) {
+        JsonObject result = null;
+        JsonObject body = message.body();
+        switch (body.getString("type")) {
+            case "gameEnded":
+                result = endGame(body);
+                break;
         }
         return result;
     }
@@ -99,6 +113,8 @@ public class GameLobbyVerticle extends PongVerticle {
         //todo: stop finished games
         container.deployVerticle(GameVerticle.class.getName(), config, result -> {
             if (result.succeeded()) {
+                deploymentIDs.put(guid, result.result());
+                container.logger().info(String.format("Deployed a new verticle for game %s with deployment ID: %s", guid, result.result()));
                 message.reply(new AddGameDTO(guid));
             } else {
                 message.reply(new ErrorDTO(result.cause()));
@@ -139,6 +155,17 @@ public class GameLobbyVerticle extends PongVerticle {
                 message.reply(reply);
             }
         });
+        return AsyncHandlerDTO.getInstance();
+    }
+
+    private JsonObject endGame(JsonObject game) {
+        String guid = game.getString("guid");
+        String id = deploymentIDs.get(guid);
+        if (id != null) {
+            container.logger().info(String.format("Destroying verticle for game %s", guid));
+            deploymentIDs.remove(guid);
+            container.undeployVerticle(id);
+        }
         return AsyncHandlerDTO.getInstance();
     }
 

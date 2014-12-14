@@ -8,7 +8,7 @@
       "address": "ch.erni.beer.vertx.GameLobbyVerticle.queue"
     },
     {
-      "address_re": "Game\\.public-[a-zA-Z0-9\\-]+"
+      "address_re": "Game\\.input-[a-zA-Z0-9\\-]+"
     }
   ],
   "allowedEndpointsOut": [

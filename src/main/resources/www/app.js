@@ -1,7 +1,7 @@
 var UIModel = function() {
     var Q = Quintus({development: true}).include("Sprites, Scenes, Input, 2D, Touch, UI").setup("game").controls(true).touch();
-    var FPS = 30;
     var thisUiModel = this;
+    var lblScore1, lblScore2, lblOverlay;
 
     this.onPlayerMove = null;
     this.onStageLoaded = null;
@@ -11,25 +11,11 @@ var UIModel = function() {
             init: function (p) {
                 this._super(p, {
                     asset: "black.png",
-                    x: playerNum == 1 ? 10 : 994,
+                    x: playerNum == 1 ? 10 : 1014,
                     y: 280
                 });
                 this.add("2d");
             }
-        }
-        if (playerNum == 1) {
-            result.step = function () {
-
-                var vy = Q.inputs['up'] ? -200 : 0;
-                vy =  Q.inputs['down'] ? 200 : vy;
-                var vySingle = vy / 30;
-                if (vy != 0 && this.p.y + vySingle >= 50 && this.p.y + vySingle <= 650 - this.p.h) {
-                    this.p.y += vySingle;
-                    if (thisUiModel.onPlayerMove != null) {
-                        thisUiModel.onPlayerMove();
-                    }
-                }
-            };
         }
         return result;
     }
@@ -83,6 +69,9 @@ var UIModel = function() {
         thisUiModel.player1 = stage.insert(new Q.Player1);
         thisUiModel.player2 = stage.insert(new Q.Player2);
         thisUiModel.ball = stage.insert(new Q.Ball);
+        lblScore1 = stage.insert(new Q.UI.Text({x: 30, y: 50, label: "0"}));
+        lblScore2 = stage.insert(new Q.UI.Text({x: 984, y: 50, label: "0"}));
+        lblOverlay = stage.insert(new Q.UI.Text({x: 512, y: 300, size: 30, label: "Waiting for other player..."}));
         stage.insert(new Q.WallTop);
         stage.insert(new Q.WallBottom);
         if (thisUiModel.onStageLoaded != null) {
@@ -90,24 +79,50 @@ var UIModel = function() {
         }
     });
 
-
-
     Q.gravityX = 0;
     Q.gravityY = 0;
     Q.input.keyboardControls();
 
     this.uiInit = function() {
-        Q.load("black.png",
+        Q.load("black.png, green.png",
             function () {
                 Q.stageScene("mainScene");
             }
         );
     }
+
+    this.setControllablePlayer = function(playerNum) {
+        var object = playerNum == 1 ? thisUiModel.player1 : thisUiModel.player2;
+        object.step = function () {
+            var vy = Q.inputs['up'] ? -200 : 0;
+            vy =  Q.inputs['down'] ? 200 : vy;
+            var vySingle = vy / 30;
+            if (vy != 0 && this.p.y + vySingle >= 50 && this.p.y + vySingle <= 650 - this.p.h) {
+                this.p.y += vySingle;
+                if (thisUiModel.onPlayerMove != null) {
+                    thisUiModel.onPlayerMove(object);
+                }
+            }
+        };
+        object.p.asset = "green.png";
+        lblOverlay.p.hidden = true;
+    };
+
+    this.setScore = function(score1, score2) {
+        lblScore1.p.label = score1.toString();
+        lblScore2.p.label = score2.toString();
+    };
+
+    this.setWinningPlayer = function(playerNum) {
+        lblOverlay.p.label = "Player " + playerNum + " wins!";
+        lblOverlay.p.hidden = false;
+    }
 };
 
 
 var Controller = function() {
-    const GAME_QUEUE_PREFIX = "Game.public-";
+    const GAME_PUBLIC_QUEUE_PREFIX = "Game.public-";
+    const GAME_INPUT_QUEUE_PREFIX = "Game.input-";
     const LOBBY_QUEUE = "ch.erni.beer.vertx.GameLobbyVerticle.queue";
     var inputQueue;
     var playerGUID, gameGUID;
@@ -134,10 +149,9 @@ var Controller = function() {
                 playerGUID = addPlayerResult.guid;
                 eb.send(LOBBY_QUEUE, {type: "getAvailableGame"}, function(availGameResult){
                     var onGameRegistered = function(result) {
-                        var address = GAME_QUEUE_PREFIX + gameGUID;
-                        inputQueue = address + "-" + playerGUID;
-                        console.log("Registering on " + address);
+                        var address = GAME_PUBLIC_QUEUE_PREFIX + gameGUID;
                         eb.registerHandler(address, onGameMessageReceived);
+                        inputQueue = GAME_INPUT_QUEUE_PREFIX + gameGUID;
                     };
                     var availGameGuid = availGameResult.guid;
                     if (availGameGuid != null) { //join existing game
@@ -163,30 +177,43 @@ var Controller = function() {
     }
 
     function onGameMessageReceived(message) {
-        console.log(message);
         if (message.type == "state") {
             ball.p.x = message.ballx + ball.p.cx;
             ball.p.y = message.bally + ball.p.cy;
+            //always update state of the other player
+            var y = 0;
+            if (myPlayerNumber == 1) {
+                y = message.player2pos;
+                player2.p.y = y + player2.p.cy;
+            } else if (myPlayerNumber == 2) {
+                y = message.player1pos;
+                player1.p.y = y + player1.p.cy;
+            }
+            model.setScore(message.player1score, message.player2score);
         } else if (message.type == "command") {
-
+            if (message.command == "start") {
+                model.setControllablePlayer(myPlayerNumber);
+            } else if (message.command == "win1") {
+                model.setWinningPlayer(1);
+            } else if (message.command == "win2") {
+                model.setWinningPlayer(2);
+            }
         }
-
-
     }
 
-    function onPlayerMove() {
+    function onPlayerMove(player) {
         if (inputQueue == null) {
             return;
         }
-        eb.send(inputQueue, {type: "move", guid: playerGUID, y: player1.p.y - player1.p.cy}, function(reply){
+        eb.send(inputQueue, {type: "move", guid: playerGUID, y: player.p.y - player.p.cy}, function(reply){
             var y = reply.y;
-            var clientY = player1.p.y - player1.p.cy;
+            var clientY = player.p.y - player.p.cy;
             //fix position from server if the difference is too high
             if (Math.abs(y - clientY) > 10) {
                 console.log("fixing client " + clientY + " vs server " + y);
-                player1.p.y = y + player1.p.cy;
+                player.p.y = y + player.p.cy;
             } else {
-                console.log("ok");
+                console.log("move ok");
             }
         });
     }

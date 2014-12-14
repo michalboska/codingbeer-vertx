@@ -4,8 +4,8 @@ import ch.erni.beer.vertx.dto.ErrorDTO;
 import ch.erni.beer.vertx.dto.game.GameCommandDTO;
 import ch.erni.beer.vertx.dto.game.GameStateDTO;
 import ch.erni.beer.vertx.dto.lobby.AddPlayerDTO;
+import ch.erni.beer.vertx.dto.lobby.GameEndedDTO;
 import ch.erni.beer.vertx.entity.Player;
-import org.vertx.java.core.Handler;
 import org.vertx.java.core.eventbus.Message;
 import org.vertx.java.core.json.JsonObject;
 
@@ -15,19 +15,18 @@ import org.vertx.java.core.json.JsonObject;
 public class GameVerticle extends PongVerticle {
 
     private Player[] players = new Player[2];
-    private String guid, publicAddress, privateAddress;
-    private Handler<Message<JsonObject>> publicHandler;
-    private GameStateDTO state = new GameStateDTO();
-    private GameCommandDTO command = new GameCommandDTO();
+    private String guid, publicAddress, privateAddress, inputAddress;
     private Point ball = new Point(512, 300);
-    private int ballSpeed = 10;
+    private float ballSpeed = 10;
     private Point ballVector = new Point(-1, -1);
     //we don't want computeNewBallCoordinates to always return new instance to elliminate GC overhead,
     // so we will always modify the same one
     private Point newBallCoordinates = new Point();
     private JsonObject playerMoveResponse = new JsonObject();
+    private GameStateDTO state = new GameStateDTO();
+    private GameCommandDTO command = new GameCommandDTO();
 
-    private int speedCounter = 0;
+    private byte speedCounter = 0;
     private long gameTimer;
 
     @Override
@@ -36,17 +35,14 @@ public class GameVerticle extends PongVerticle {
         String playerGuid = Configuration.getString(Constants.CONFIG_PLAYER_GUID, container);
         String playerName = Configuration.getString(Constants.CONFIG_PLAYER_NAME, container);
         players[0] = new Player(playerName, playerGuid);
-        players[0].setInputQueueAddress(guid);
         publicAddress = Constants.getPublicQueueAddressForGame(guid);
         privateAddress = Constants.getPrivateQueueAddressForGame(guid);
-        publicHandler = createHandler(this::handlePublicMessages);
-        vertx.eventBus().registerHandler(publicAddress, publicHandler);
-        vertx.eventBus().registerHandler(players[0].getInputQueueAddress(), publicHandler);
-        container.logger().info(players[0].getInputQueueAddress());
+        inputAddress = Constants.getInputQueueAddressForGame(guid);
+        vertx.eventBus().registerHandler(inputAddress, createHandler(this::handleInputMessages));
         vertx.eventBus().registerHandler(privateAddress, createHandler(this::handlePrivateMessages));
     }
 
-    private JsonObject handlePublicMessages(Message<JsonObject> message) {
+    private JsonObject handleInputMessages(Message<JsonObject> message) {
         JsonObject result = null;
         JsonObject body = message.body();
         switch (body.getString("type")) {
@@ -70,16 +66,15 @@ public class GameVerticle extends PongVerticle {
 
     private void gameTick(long timerID) {
         move();
-        int winning = getWinningPlayer();
-        if (winning != -1) { //if we have a winner, end game
-            command.setCommand("win" + winning);
-            vertx.eventBus().publish(publicAddress, command);
-            vertx.cancelTimer(timerID);
-
-            return;
-        }
         populateGameState();
         vertx.eventBus().publish(publicAddress, state);
+        int winning = getWinningPlayer();
+        if (winning != -1) { //if we have a winner, end game
+            command.setCommand("win" + (winning + 1));
+            vertx.cancelTimer(timerID);
+            vertx.eventBus().publish(publicAddress, command);
+            vertx.eventBus().send(GameLobbyVerticle.QUEUE_LOBBY_PRIVATE, new GameEndedDTO(guid));
+        }
     }
 
     private void move() {
@@ -94,15 +89,17 @@ public class GameVerticle extends PongVerticle {
         if (newBallCoordinates.getX() < 20) { //ball is at player1's level
             if (ballCollidesWith(0)) { //player has caught the ball
                 ballVector.setX(1);
+                decideSpeed();
                 computeNewBallCoordinates();
             } else { //missed the ball
                 players[1].setScore(players[1].getScore() + 1);
                 resetBall();
                 computeNewBallCoordinates();
             }
-        } else if (newBallCoordinates.getX() > 984) { //ball is at player2's level
+        } else if (newBallCoordinates.getX() > 994) { //ball is at player2's level
             if (ballCollidesWith(1)) {
                 ballVector.setX(-1);
+                decideSpeed();
                 computeNewBallCoordinates();
             } else { //missed the ball
                 players[0].setScore(players[0].getScore() + 1);
@@ -111,6 +108,14 @@ public class GameVerticle extends PongVerticle {
             }
         }
         ball.set(newBallCoordinates);
+    }
+
+    private void decideSpeed() {
+        speedCounter++;
+        if (speedCounter == 5) {
+            ballSpeed *= 1.3;
+            speedCounter = 0;
+        }
     }
 
     private JsonObject movePlayer(JsonObject message) {
@@ -178,8 +183,8 @@ public class GameVerticle extends PongVerticle {
     }
 
     private void computeNewBallCoordinates() {
-        newBallCoordinates.setX(ball.getX() + ballSpeed * ballVector.getX());
-        newBallCoordinates.setY(ball.getY() + ballSpeed * ballVector.getY());
+        newBallCoordinates.setX(ball.getX() + Math.round(ballSpeed * ballVector.getX()));
+        newBallCoordinates.setY(ball.getY() + Math.round(ballSpeed * ballVector.getY()));
     }
 
     private void resetBall() {
@@ -201,6 +206,8 @@ public class GameVerticle extends PongVerticle {
         players[0].setScore(0);
         players[1].setScore(0);
         populateGameState();
+        command.setCommand("start");
+        vertx.eventBus().publish(publicAddress, command);
         gameTimer = vertx.setPeriodic(20, this::gameTick);
     }
 
@@ -211,8 +218,6 @@ public class GameVerticle extends PongVerticle {
         String playerGuid = Configuration.getMandatoryString(Constants.CONFIG_PLAYER_GUID, message);
         String playerName = Configuration.getMandatoryString(Constants.CONFIG_PLAYER_NAME, message);
         players[1] = new Player(playerName, playerGuid);
-        players[1].setInputQueueAddress(guid);
-        vertx.eventBus().registerHandler(players[1].getInputQueueAddress(), publicHandler);
         vertx.setTimer(2000, l -> startGame());
         return new AddPlayerDTO(playerGuid);
     }
@@ -220,6 +225,7 @@ public class GameVerticle extends PongVerticle {
     public static class Constants {
         public static final String QUEUE_PUBLIC_PREFIX = "Game.public-";
         public static final String QUEUE_PRIVATE_PREFIX = "Game.private-";
+        public static final String QUEUE_INPUT_PREFIX = "Game.input-";
 
         public static final String CONFIG_GAME_GUID = "gameGuid";
         public static final String CONFIG_PLAYER_GUID = "playerGuid";
@@ -230,9 +236,11 @@ public class GameVerticle extends PongVerticle {
         public static String getPublicQueueAddressForGame(String guid) {
             return QUEUE_PUBLIC_PREFIX + guid;
         }
-
         public static String getPrivateQueueAddressForGame(String guid) {
             return QUEUE_PRIVATE_PREFIX + guid;
+        }
+        public static String getInputQueueAddressForGame(String guid) {
+            return QUEUE_INPUT_PREFIX + guid;
         }
     }
 }
