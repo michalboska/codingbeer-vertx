@@ -13,6 +13,7 @@ import org.vertx.java.core.json.JsonObject;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Created by Michal Boska on 3. 12. 2014.
@@ -25,7 +26,9 @@ public class GameLobbyVerticle extends PongVerticle {
     private static final String ERROR_NO_SUCH_GAME = "No such game exists";
 
     private Map<String, Game> activeGames = new HashMap<>();
+    private Map<String, Game> activeGamesByName = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
     private Map<String, Player> activePlayers = new HashMap<>();
+    private Map<String, Player> activePlayersByName = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
     private Map<String, String> deploymentIDs = new HashMap<>();
 
     private Game joinableGame;
@@ -81,19 +84,20 @@ public class GameLobbyVerticle extends PongVerticle {
 
     private JsonObject addPlayer(JsonObject message) {
         String name = message.getString("name");
-        boolean exists = activePlayers.values().stream().anyMatch(p -> p.getName().equalsIgnoreCase(name));
+        boolean exists = activePlayersByName.containsKey(name);
         if (exists) {
             return new ErrorDTO("Player name already exists");
         }
         Player player = new Player(StringEscapeUtils.escapeHtml4(name), Entity.generateGUID());
         activePlayers.put(player.getGuid(), player);
+        activePlayersByName.put(player.getName(), player);
         return new AddPlayerDTO(player.getGuid());
     }
 
     private JsonObject addGame(Message<JsonObject> message) {
         JsonObject body = message.body();
         String name = body.getString("name");
-        boolean exists = activeGames.values().stream().anyMatch(g -> g.getName().equalsIgnoreCase(name));
+        boolean exists = activeGames.containsKey(name);
         if (exists) {
             return new ErrorDTO("Game with this name already exists");
         }
@@ -105,6 +109,7 @@ public class GameLobbyVerticle extends PongVerticle {
         String guid = Entity.generateGUID();
         Game game = new Game(StringEscapeUtils.escapeHtml4(name), guid, player);
         activeGames.put(guid, game);
+        activeGamesByName.put(name, game);
         //deploy and configure a new game verticle
         JsonObject config = new JsonObject();
         config.putString(GameVerticle.Constants.CONFIG_GAME_GUID, guid);
@@ -159,6 +164,10 @@ public class GameLobbyVerticle extends PongVerticle {
 
     private JsonObject endGame(JsonObject game) {
         String guid = game.getString("guid");
+        Game gameInMap = activeGames.get(guid);
+        if (gameInMap != null) {
+            activeGamesByName.remove(gameInMap);
+        }
         activeGames.remove(guid);
         String id = deploymentIDs.get(guid);
         if (id != null) {
@@ -174,7 +183,8 @@ public class GameLobbyVerticle extends PongVerticle {
     }
 
     private JsonObject listPlayers() {
-        String[] strings = activePlayers.values().stream().map(p -> p.getName()).toArray(size -> new String[size]);
+        String[] strings = new String[activePlayersByName.size()];
+        strings = activePlayersByName.keySet().toArray(strings);
         return new ListPlayersDTO(strings);
     }
 
