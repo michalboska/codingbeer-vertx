@@ -1,5 +1,6 @@
 package ch.erni.beer.vertx;
 
+import ch.erni.beer.vertx.dto.AsyncHandlerDTO;
 import ch.erni.beer.vertx.dto.ErrorDTO;
 import ch.erni.beer.vertx.dto.game.GameCommandDTO;
 import ch.erni.beer.vertx.dto.game.GameStateDTO;
@@ -8,6 +9,8 @@ import ch.erni.beer.vertx.dto.lobby.GameEndedDTO;
 import ch.erni.beer.vertx.entity.Player;
 import org.vertx.java.core.eventbus.Message;
 import org.vertx.java.core.json.JsonObject;
+
+import java.util.stream.IntStream;
 
 /**
  * Created by Michal Boska on 3. 12. 2014.
@@ -25,6 +28,7 @@ public class GameVerticle extends PongVerticle {
     private JsonObject playerMoveResponse = new JsonObject();
     private GameStateDTO state = new GameStateDTO();
     private GameCommandDTO command = new GameCommandDTO();
+    private int disconnectedPlayerIndex = -1;
 
     private byte speedCounter = 0;
     private long gameTimer;
@@ -40,6 +44,7 @@ public class GameVerticle extends PongVerticle {
         inputAddress = Constants.getInputQueueAddressForGame(guid);
         vertx.eventBus().registerHandler(inputAddress, createHandler(this::handleInputMessages));
         vertx.eventBus().registerHandler(privateAddress, createHandler(this::handlePrivateMessages));
+        vertx.eventBus().registerHandler(HTTPServerVerticle.TOPIC_SOCKJS_MESSAGES, createHandler(this::handleSockJsMessages));
     }
 
     private JsonObject handleInputMessages(Message<JsonObject> message) {
@@ -62,6 +67,14 @@ public class GameVerticle extends PongVerticle {
                 break;
         }
         return result;
+    }
+
+    private JsonObject handleSockJsMessages(Message<JsonObject> message) {
+        JsonObject body = message.body();
+        if (body != null && body.getString("type").equals("disconnect")) {
+            playerDisconnected(body.getString("playerGuid"));
+        }
+        return AsyncHandlerDTO.getInstance();
     }
 
     private void gameTick(long timerID) {
@@ -148,6 +161,9 @@ public class GameVerticle extends PongVerticle {
      * @return index of winning player (0 or 1) or -1 if no one is winning
      */
     private int getWinningPlayer() {
+        if (disconnectedPlayerIndex > -1) {
+            return 1 - disconnectedPlayerIndex; //if i = 1, return 0 and vice-versa
+        }
         for (int i = 0; i <= 1; i++) {
             if (players[i].getScore() >= 10) {
                 return i;
@@ -219,6 +235,14 @@ public class GameVerticle extends PongVerticle {
         players[1] = new Player(playerName, playerGuid);
         vertx.setTimer(2000, l -> startGame());
         return new AddPlayerDTO(playerGuid);
+    }
+
+    private void playerDisconnected(String playerGuid) {
+        IntStream.rangeClosed(0, 1).forEach(i -> {
+            if (players[i] != null && players[i].getGuid().equals(playerGuid)) {
+                disconnectedPlayerIndex = i;
+            }
+        });
     }
 
     public static class Constants {

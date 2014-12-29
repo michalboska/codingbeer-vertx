@@ -14,6 +14,7 @@ import org.vertx.java.core.json.JsonObject;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.stream.IntStream;
 
 /**
  * Created by Michal Boska on 3. 12. 2014.
@@ -38,6 +39,7 @@ public class GameLobbyVerticle extends PongVerticle {
     public void start() {
         vertx.eventBus().registerHandler(QUEUE_LOBBY, createHandler(this::handleMessage));
         vertx.eventBus().registerHandler(QUEUE_LOBBY_PRIVATE, createHandler(this::handlePrivateMessage));
+        vertx.eventBus().registerHandler(HTTPServerVerticle.TOPIC_SOCKJS_MESSAGES, createHandler(this::handleSocketMessage));
     }
 
     private JsonObject handleMessage(Message<JsonObject> message) {
@@ -80,6 +82,14 @@ public class GameLobbyVerticle extends PongVerticle {
                 break;
         }
         return result;
+    }
+
+    private JsonObject handleSocketMessage(Message<JsonObject> message) {
+        JsonObject body = message.body();
+        if (body != null && "disconnect".equals(body.getString("type"))) {
+            playerDisconnected(body.getString("playerGuid"));
+        }
+        return AsyncHandlerDTO.getInstance();
     }
 
     private JsonObject addPlayer(JsonObject message) {
@@ -166,7 +176,10 @@ public class GameLobbyVerticle extends PongVerticle {
         String guid = game.getString("guid");
         Game gameInMap = activeGames.get(guid);
         if (gameInMap != null) {
-            activeGamesByName.remove(gameInMap);
+            activeGamesByName.remove(gameInMap.getName());
+            IntStream.rangeClosed(1, 2).forEach(i -> {
+                playerDisconnected(gameInMap.getPlayer(i).getGuid());
+            });
         }
         activeGames.remove(guid);
         String id = deploymentIDs.get(guid);
@@ -186,6 +199,15 @@ public class GameLobbyVerticle extends PongVerticle {
         String[] strings = new String[activePlayersByName.size()];
         strings = activePlayersByName.keySet().toArray(strings);
         return new ListPlayersDTO(strings);
+    }
+
+    private void playerDisconnected(String playerGuid) {
+        Player player = activePlayers.get(playerGuid);
+        if (player == null) {
+            return;
+        }
+        activePlayers.remove(playerGuid);
+        activePlayersByName.remove(player.getName());
     }
 
 }
