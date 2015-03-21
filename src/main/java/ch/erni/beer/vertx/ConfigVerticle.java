@@ -13,7 +13,15 @@ public class ConfigVerticle extends Verticle {
     public void start() {
 
         String httpAddress = Configuration.getString("http.address", container);
-        Integer httpPort = Configuration.getInteger("http.port", container);
+        Integer cloudPort = null;
+        try {
+            cloudPort = Integer.parseInt(System.getenv("PORT"));
+            container.logger().info("Got HTTP port definition from cloud provider, will listen on port " + cloudPort);
+        } catch (NumberFormatException e) {
+            cloudPort = Configuration.getInteger("http.port", container);
+            container.logger().info("Environment property PORT is not defined, will use http port from local config: " + cloudPort);
+        }
+        final Integer httpPort = cloudPort; //we need a final variable to use in lambda
         Integer numInstances = Runtime.getRuntime().availableProcessors();
         JsonArray allowedEndpointsIn = Configuration.getArray("allowedEndpointsIn", container);
         JsonArray allowedEndpointsOut = Configuration.getArray("allowedEndpointsOut", container);
