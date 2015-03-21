@@ -1,1 +1,1 @@
-web: mvn clean
+web: .maven/bin/mvn vertx:runmod
