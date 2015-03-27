@@ -148,10 +148,13 @@ var Controller = function() {
             if (addPlayerResult.status == "ok") {
                 playerGUID = addPlayerResult.guid;
                 eb.send(LOBBY_QUEUE, {type: "getAvailableGame"}, function(availGameResult){
-                    var onGameRegistered = function(result) {
+                    var onGameRegistered = function() {
                         var address = GAME_PUBLIC_QUEUE_PREFIX + gameGUID;
-                        eb.registerHandler(address, onGameMessageReceived);
                         inputQueue = GAME_INPUT_QUEUE_PREFIX + gameGUID;
+                        eb.send(inputQueue, {sessionID: "abcdef", action: "login"}, function(result) {
+                            console.log(result);
+                            eb.registerHandler(address, onGameMessageReceived);
+                        });
                     };
                     var availGameGuid = availGameResult.guid;
                     if (availGameGuid != null) { //join existing game

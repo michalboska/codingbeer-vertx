@@ -22,7 +22,7 @@ public class ConfigVerticle extends Verticle {
             container.logger().info("Environment property PORT is not defined, will use http port from local config: " + cloudPort);
         }
         final Integer httpPort = cloudPort; //we need a final variable to use in lambda
-        Integer numInstances = Runtime.getRuntime().availableProcessors();
+        Integer numInstances = 1;
         JsonArray allowedEndpointsIn = Configuration.getArray("allowedEndpointsIn", container);
         JsonArray allowedEndpointsOut = Configuration.getArray("allowedEndpointsOut", container);
 

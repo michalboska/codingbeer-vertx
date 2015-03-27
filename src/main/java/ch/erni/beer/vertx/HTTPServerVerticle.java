@@ -51,6 +51,7 @@ public class HTTPServerVerticle extends Verticle implements EventBusBridgeHook {
 
     @Override
     public boolean handleSocketCreated(SockJSSocket sock) {
+        container.logger().info("handleSocketCreated called");
         return true;
     }
 
@@ -90,6 +91,7 @@ public class HTTPServerVerticle extends Verticle implements EventBusBridgeHook {
 
     @Override
     public boolean handlePreRegister(SockJSSocket sock, String address) {
+        container.logger().info("handlePreRegister called");
         return true;
     }
 
@@ -104,6 +106,7 @@ public class HTTPServerVerticle extends Verticle implements EventBusBridgeHook {
 
     @Override
     public boolean handleAuthorise(JsonObject message, String sessionID, Handler<AsyncResult<Boolean>> handler) {
+        container.logger().info("handleAuthorise() called");
         return true;
     }
 }

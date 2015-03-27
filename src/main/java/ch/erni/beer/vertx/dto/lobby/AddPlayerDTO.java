@@ -10,6 +10,7 @@ public class AddPlayerDTO extends EntityCreatedDTO {
 
     public AddPlayerDTO(String guid) {
         super(guid);
+        putString("sessionID", "abcdef");
     }
     @Override
     public String getType() {
