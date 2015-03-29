@@ -107,6 +107,27 @@ public class HTTPServerVerticle extends Verticle implements EventBusBridgeHook {
     @Override
     public boolean handleAuthorise(JsonObject message, String sessionID, Handler<AsyncResult<Boolean>> handler) {
         container.logger().info("handleAuthorise() called");
+        handler.handle(new AsyncResult<Boolean>() {
+            @Override
+            public Boolean result() {
+                return Boolean.TRUE;
+            }
+
+            @Override
+            public Throwable cause() {
+                return null;
+            }
+
+            @Override
+            public boolean succeeded() {
+                return true;
+            }
+
+            @Override
+            public boolean failed() {
+                return false;
+            }
+        });
         return true;
     }
 }

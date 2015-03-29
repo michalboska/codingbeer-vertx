@@ -50,7 +50,11 @@ public class GameVerticle extends PongVerticle {
     private JsonObject handleInputMessages(Message<JsonObject> message) {
         JsonObject result = null;
         JsonObject body = message.body();
-        switch (body.getString("type")) {
+        String type = body.getString("type");
+        if (type == null) {
+            return null;
+        }
+        switch (type) {
             case "move":
                 result = movePlayer(body);
                 break;

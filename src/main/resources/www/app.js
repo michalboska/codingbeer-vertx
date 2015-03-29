@@ -208,7 +208,7 @@ var Controller = function() {
         if (inputQueue == null) {
             return;
         }
-        eb.send(inputQueue, {type: "move", guid: playerGUID, y: player.p.y - player.p.cy}, function(reply){
+        eb.send(inputQueue, {type: "move", guid: playerGUID, y: player.p.y - player.p.cy, sessionID: "abcdef"}, function(reply){
             var y = reply.y;
             var clientY = player.p.y - player.p.cy;
             //fix position from server if the difference is too high
